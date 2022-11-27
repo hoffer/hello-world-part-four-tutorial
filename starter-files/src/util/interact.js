@@ -11,9 +11,9 @@ export const helloWorldContract = new web3.eth.Contract(
     contractAddress
 );
 
-export const loadCurrentMessage = async () => { 
-    const message = await helloWorldContract.methods.owner().call(); 
-    return message;
+export const loadContractOwner = async () => { 
+    const owner = await helloWorldContract.methods.owner().call(); 
+    return owner;
 };
 
 export const connectWallet = async () => {
@@ -96,18 +96,18 @@ export const getCurrentWalletConnected = async () => {
 };
 
 
-export const updateMessage = async (address, addresses, amount) => {
+export const sendEth = async (sender_address, to_addresses, amount) => {
     //input error handling
-    if (!window.ethereum || address === null) {
+    if (!window.ethereum || sender_address === null) {
         return {
         status:
             "💡 Connect your Metamask wallet",
         };
     }
 
-    let address_list = addresses.trim().split(",")
+    let to_address_list = to_addresses.trim().split(",")
 
-    if (!(address_list && address_list.length > 0)) {
+    if (!(to_address_list && to_address_list.length > 0)) {
         return {
             status: "❌ Your receipt address cannot be an empty string.",
         };
@@ -123,9 +123,79 @@ export const updateMessage = async (address, addresses, amount) => {
     //set up transaction parameters
     const transactionParameters = {
         to: contractAddress, // Required except during contract publications.
-        from: address, // must match user's active address.
-        value: '0x'+ (amount_int * address_list.length).toString(16), // calc total ETH and convert to string
-        data: helloWorldContract.methods.sendETH(address_list, '0x'+ amount_int.toString(16)).encodeABI(),
+        from: sender_address, // must match user's active address.
+        value: '0x'+ (amount_int * to_address_list.length).toString(16), // calc total ETH and convert to string
+        data: helloWorldContract.methods.sendETH(to_address_list, '0x'+ amount_int.toString(16)).encodeABI(),
+    };
+
+    // return {
+    //     status: transactionParameters.value,
+    // };
+
+    //sign the transaction
+    try {
+        const txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [transactionParameters],
+        });
+        return {
+        status: (
+            <span>
+            ✅{" "}
+            <a target="_blank" href={`https://goerli.etherscan.io/tx/${txHash}`}>
+                View the status of your transaction on Etherscan!
+            </a>
+            <br />
+            ℹ️ Once the transaction is verified by the network, the message will
+            be updated automatically.
+            </span>
+        ),
+        };
+    } catch (error) {
+        return {
+        status: "😥 " + error.message,
+        };
+    }
+};
+
+
+
+export const sendToken = async (sender_address, token_address, to_addresses, amount) => {
+    //input error handling
+    if (!window.ethereum || sender_address === null) {
+        return {
+        status:
+            "💡 Connect your Metamask wallet",
+        };
+    }
+
+    let to_address_list = to_addresses.trim().split(",")
+
+    if (!token_address) {
+        return {
+            status: "❌ Token address cannot be an empty string.",
+        };
+    }
+
+    if (!(to_address_list && to_address_list.length > 0)) {
+        return {
+            status: "❌ Receipt address cannot be an empty string.",
+        };
+    }
+
+    var amount_int = parseInt(amount, 10)
+
+    if (amount_int <= 0 ) {
+        return {
+            status: "❌ Your sending amount cannot be 0",
+        };
+    }
+    //set up transaction parameters
+    const transactionParameters = {
+        to: contractAddress, // Required except during contract publications.
+        from: sender_address, // must match user's active address.
+        value: '0x0',
+        data: helloWorldContract.methods.send(token_address, to_address_list, '0x'+ amount_int.toString(16)).encodeABI(),
     };
 
     // return {
